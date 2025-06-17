@@ -1,0 +1,6 @@
+*.keras
+*.npy
+*.npz
+__pycache__/
+.env
+.DS_Store
