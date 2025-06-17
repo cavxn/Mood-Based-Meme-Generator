@@ -1,48 +1,20 @@
-# generate_meme.py
+# generate_meme.py (offline version)
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
 
-import os
-import random
-import json
-import cv2
-from datetime import datetime
+# Load model and tokenizer once
+tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
+model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
 
-def generate_meme(emotion, meme_dir="meme_templates", caption_file="captions.json"):
-    # Load captions
-    with open(caption_file, "r") as f:
-        captions = json.load(f)
+# Prompt template
+def get_prompt(emotion):
+    return f"Generate a funny meme caption for a person feeling {emotion.lower()}."
 
-    # Pick meme template
-    emotion_dir = os.path.join(meme_dir, emotion)
-    if not os.path.exists(emotion_dir):
-        print(f"No memes found for emotion: {emotion}")
-        return
-
-    meme_files = os.listdir(emotion_dir)
-    if not meme_files:
-        print(f"No images in {emotion_dir}")
-        return
-
-    meme_path = os.path.join(emotion_dir, random.choice(meme_files))
-    meme = cv2.imread(meme_path)
-    if meme is None:
-        print("Error loading meme image")
-        return
-
-    caption = random.choice(captions.get(emotion, ["Just vibes."]))
-
-    # Add caption
-    font = cv2.FONT_HERSHEY_DUPLEX
-    font_scale = 1
-    thickness = 2
-    text_size = cv2.getTextSize(caption, font, font_scale, thickness)[0]
-    text_x = (meme.shape[1] - text_size[0]) // 2
-    text_y = meme.shape[0] - 30
-
-    cv2.putText(meme, caption, (text_x, text_y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
-
-    # Show + save
-    filename = f"generated_meme_{emotion}_{datetime.now().strftime('%H%M%S')}.jpg"
-    cv2.imwrite(filename, meme)
-    cv2.imshow("Generated Meme", meme)
-    cv2.waitKey(0)
-    cv2.destroyWindow("Generated Meme")
+# Meme caption generator
+def get_meme_caption(emotion):
+    prompt = get_prompt(emotion)
+    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
+    with torch.no_grad():
+        outputs = model.generate(**inputs, max_new_tokens=30, temperature=0.9, do_sample=True)
+    caption = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return caption
